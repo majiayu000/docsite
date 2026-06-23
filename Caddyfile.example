@@ -1,0 +1,28 @@
+# docsite 的 Caddy 配置示例。
+# 部署时复制为 Caddyfile，按注释改三处：站点目录、端口、认证用户/哈希。
+
+{
+	# ── 外网 HTTPS（可选）──
+	# 内网用下方的 :8090 即可。要开放外网时：
+	#   1. 把下方 ":8090 {" 改成你的域名，如 "docs.example.com {"
+	#   2. 取消下一行 email 注释
+	# Caddy 会自动签发并续期 Let's Encrypt 证书，无需手动 certbot。
+	# email you@example.com
+}
+
+:8090 {
+	# 【改】站点目录：指向你部署 docsite 的 site/（build.py 产物）
+	root * /srv/docsite/site
+	encode gzip
+
+	# 【改】简单共享密码（HTTP Basic Auth）。
+	# 生成哈希：caddy hash-password --plaintext "你的密码"
+	# 把 <HASH> 换成输出的哈希，USERNAME 换成你的用户名。
+	basicauth {
+		USERNAME <HASH>
+	}
+
+	# file_server 默认不列目录：访问 docs/<doc>/ 自动找 index/report.html，
+	# 访问无 index 的目录返回 404，具体文件（manifest.json）可被搜索脚本 fetch。
+	file_server
+}

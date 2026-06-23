@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>示例报告（带图片）</title>
+<style>
+  body { font-family: -apple-system, "PingFang SC", sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; line-height: 1.7; color: #1a1a1a; }
+  h1 { color: #3a6ea5; }
+  img { max-width: 100%; border: 1px solid #e3e6ea; border-radius: 6px; }
+  code { background: #f4f5f7; padding: 2px 6px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<h1>示例报告：带图片的文档</h1>
+<p>这篇文档引用了同目录 <code>assets/</code> 下的一张图。docsite 保证文档<strong>自包含</strong>——图片跟着文档走，无论同步到哪里都不会断链。</p>
+
+<p><img src="assets/diagram.svg" alt="示例图"></p>
+
+<h2>为什么强调自包含</h2>
+<p>团队文档站常踩的坑：一篇 HTML 引用了服务器别处的图片，换个环境就破图。docsite 要求每篇文档自带全部媒体，<code>publish_doc.py</code> 还能自动把跨目录引用收拢进来，从根本上避免断链。</p>
+</body>
+</html>

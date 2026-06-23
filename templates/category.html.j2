@@ -1,0 +1,21 @@
+{% extends "_base.html.j2" %}
+{% block title %}{{ category }} · {{ site_name }}{% endblock %}
+{% block content %}
+<div class="main-head">
+  <h1>{{ category }} <small id="cat-count">{{ docs|length }}</small></h1>
+  <div class="main-tools">
+    <div class="view-toggle">
+      <button data-view="grid" class="active" title="网格">▦</button>
+      <button data-view="list" title="列表">☰</button>
+    </div>
+  </div>
+</div>
+<p class="sub-filter-hint" id="sub-filter-hint" hidden></p>
+<div class="docs" id="docs-list" data-view="grid">
+  {% for doc in docs %}{{ doc_card(doc, depth) }}
+  {% else %}<p class="empty">该分类暂无文档。</p>{% endfor %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>const CATEGORY_PAGE = true;</script>
+{% endblock %}

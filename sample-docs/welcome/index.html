@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>欢迎使用 docsite</title>
+<style>
+  body { font-family: -apple-system, "PingFang SC", sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; line-height: 1.7; color: #1a1a1a; }
+  h1 { color: #3a6ea5; }
+  h2 { margin-top: 1.8rem; }
+  code, pre { background: #f4f5f7; border-radius: 4px; }
+  code { padding: 2px 6px; }
+  pre { padding: 12px 14px; overflow-x: auto; }
+</style>
+</head>
+<body>
+<h1>欢迎使用 docsite</h1>
+<p>这是一篇示例文档。docsite 把这样的 HTML 文档组织成<strong>可分类、可搜索</strong>的站点，给团队通过网址访问。</p>
+
+<h2>文档长什么样</h2>
+<p>每篇文档是一个目录，包含入口 HTML 和它引用的全部图片：</p>
+<pre><code>welcome/
+├── index.html      ← 你正在看的入口
+└── .docmeta.yaml   ← 标题/分类/日期（可选，不写也能自动推断）</code></pre>
+
+<h2>发布一篇文档</h2>
+<ol>
+  <li>把文档目录放进 <code>site/docs/</code></li>
+  <li>运行 <code>python3 build.py</code></li>
+</ol>
+<p>站点首页、分类页、搜索页会自动更新。</p>
+
+<h2>跨目录引用的文档怎么办</h2>
+<p>如果你的 HTML 里有 <code>src="../别的目录/图片.png"</code> 这种跨目录引用，先用 <code>publish_doc.py</code> 打包成自包含：</p>
+<pre><code>python3 publish_doc.py path/to/your-doc
+# 产物在 dist/your-doc/，所有图片已收进 assets/，路径已重写</code></pre>
+
+<h2>下一步</h2>
+<p>看另一篇 demo「示例报告（带图片）」了解带图文档；阅读仓库 README 了解部署。</p>
+</body>
+</html>

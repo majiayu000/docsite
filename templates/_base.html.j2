@@ -1,0 +1,68 @@
+{%- macro doc_card(doc, depth) -%}
+<a class="card" href="{{ depth }}{{ doc.url }}"
+   data-date="{{ doc.date }}" data-title="{{ doc.title }}"
+   data-cat="{{ doc.cat_slug }}"{% if doc.sub_slug %} data-sub="{{ doc.sub_slug }}"{% endif %}
+   data-tags="{{ doc.tags|join(',') }}">
+  {% if doc.cover %}<div class="card-cover" style="background-image:url('{{ depth }}{{ doc.cover }}')"></div>
+  {% else %}<div class="card-cover placeholder">📄</div>{% endif %}
+  <div class="card-body">
+    <div class="card-meta">
+      <span class="cat-chip">{{ doc.category }}{% if doc.subcategory %}<span class="sub">/{{ doc.subcategory }}</span>{% endif %}</span>
+      <span class="date">{{ doc.date }}</span>
+      {% if doc.broken_count %}<span class="broken" title="入口 HTML 本地资源缺失">⚠ {{ doc.broken_count }}</span>{% endif %}
+    </div>
+    <h3 class="card-title">{{ doc.title }}</h3>
+    {% if doc.summary %}<p class="card-summary">{{ doc.summary }}</p>{% endif %}
+    {% if doc.tags %}<div class="card-tags">{% for t in doc.tags %}<span class="mini-tag">{{ t }}</span>{% endfor %}</div>{% endif %}
+  </div>
+</a>
+{%- endmacro -%}
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{% block title %}{{ site_name }}{% endblock %}</title>
+  <link rel="stylesheet" href="{{ depth }}static/style.css">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <a class="brand" href="{{ depth }}index.html">📄 {{ site_name }}</a>
+    <form class="search-box" action="{{ depth }}search.html" method="get">
+      <input type="text" name="q" placeholder="🔍 搜索文档…" autocomplete="off">
+    </form>
+    <nav class="nav-tree">
+      <a class="nav-item" href="{{ depth }}index.html">全部文档 <em>{{ all_count }}</em></a>
+      {% for cat, info in categories.items() %}
+      <div class="nav-cat">
+        <a class="nav-item nav-cat-link" href="{{ depth }}c/{{ info.slug }}.html">{{ cat }} <em>{{ info.count }}</em></a>
+        {% if info.subs %}
+        <div class="nav-subs">
+          {% for sub, sinfo in info.subs.items() %}
+          <a class="nav-sub" href="{{ depth }}c/{{ info.slug }}.html?sub={{ sinfo.slug }}">{{ sub }} <em>{{ sinfo.count }}</em></a>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </nav>
+    {% if tags_cloud %}
+    <div class="nav-section">
+      <div class="nav-section-title">标签</div>
+      <div class="tag-cloud">
+        {% for tag, cnt in tags_cloud %}
+        <a class="tag-chip" href="{{ depth }}tags.html#{{ tag }}">{{ tag }}<em>{{ cnt }}</em></a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </aside>
+  <main class="main">
+    {% block content %}{% endblock %}
+  </main>
+</div>
+<script src="{{ depth }}static/app.js"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

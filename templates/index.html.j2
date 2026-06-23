@@ -1,0 +1,23 @@
+{% extends "_base.html.j2" %}
+{% block title %}{{ site_name }} · 全部文档{% endblock %}
+{% block content %}
+<div class="main-head">
+  <h1>全部文档 <small>{{ docs|length }}</small></h1>
+  <div class="main-tools">
+    <select id="sort-select" class="sort-select">
+      <option value="date">最新优先</option>
+      <option value="title">按标题</option>
+    </select>
+    <div class="view-toggle">
+      <button data-view="grid" class="active" title="网格视图">▦</button>
+      <button data-view="list" title="列表视图">☰</button>
+    </div>
+  </div>
+</div>
+<div class="docs" id="docs-list" data-view="grid">
+  {% for doc in docs %}{{ doc_card(doc, depth) }}
+  {% else %}
+  <p class="empty">还没有文档。把自包含文档放进 site/docs/ 后重跑 build.py。</p>
+  {% endfor %}
+</div>
+{% endblock %}

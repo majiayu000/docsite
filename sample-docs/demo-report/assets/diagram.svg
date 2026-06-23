@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="140" viewBox="0 0 480 140">
+  <rect width="480" height="140" fill="#eaf2fb" rx="8"/>
+  <text x="240" y="62" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="22" fill="#3a6ea5" font-weight="bold">docsite 示例图</text>
+  <text x="240" y="92" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="13" fill="#666">assets/diagram.svg — 跟着文档走的自包含资源</text>
+</svg>

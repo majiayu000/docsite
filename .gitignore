@@ -1,0 +1,15 @@
+# 生成产物
+site/
+dist/
+# Python
+__pycache__/
+*.pyc
+.venv/
+# 部署运行时（不入库）
+caddy
+caddy.tar.gz
+cloudflared
+*.log
+# 本地配置（含密码等，不入库）
+docsite.yaml
+.deploy_pw

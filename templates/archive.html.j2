@@ -1,0 +1,16 @@
+{% extends "_base.html.j2" %}
+{% block title %}{{ period }} 归档 · {{ site_name }}{% endblock %}
+{% block content %}
+<div class="main-head">
+  <h1>{{ period }} 归档 <small>{{ docs|length }}</small></h1>
+  <div class="main-tools">
+    <div class="view-toggle">
+      <button data-view="grid" class="active" title="网格">▦</button>
+      <button data-view="list" title="列表">☰</button>
+    </div>
+  </div>
+</div>
+<div class="docs" id="docs-list" data-view="grid">
+  {% for doc in docs %}{{ doc_card(doc, depth) }}{% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends "_base.html.j2" %}
+{% block title %}搜索 · {{ site_name }}{% endblock %}
+{% block content %}
+<div class="main-head">
+  <h1>搜索文档</h1>
+</div>
+<input id="search-input" class="search-input" placeholder="输入关键词（标题 / 摘要 / 分类 / 标签）…" autofocus>
+<p class="search-hint" id="search-hint"></p>
+<div class="docs" id="search-results" data-view="list"></div>
+{% endblock %}
+{% block scripts %}
+<script>const MANIFEST_URL = "{{ depth }}_data/manifest.json";</script>
+<script src="{{ depth }}static/search.js"></script>
+{% endblock %}

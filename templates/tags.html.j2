@@ -1,0 +1,17 @@
+{% extends "_base.html.j2" %}
+{% block title %}标签 · {{ site_name }}{% endblock %}
+{% block content %}
+<div class="main-head"><h1>标签</h1></div>
+<div class="tags-page">
+  {% for tag, cnt in tags_cloud %}
+  <section class="tag-section" id="{{ tag }}">
+    <h2><span class="tag-chip">{{ tag }}</span> <small>{{ cnt }} 篇</small></h2>
+    <div class="docs" data-view="list">
+      {% for doc in docs if tag in doc.tags %}{{ doc_card(doc, depth) }}{% endfor %}
+    </div>
+  </section>
+  {% else %}
+  <p class="empty">还没有带标签的文档。</p>
+  {% endfor %}
+</div>
+{% endblock %}

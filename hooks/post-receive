@@ -1,0 +1,26 @@
+#!/bin/bash
+# docsite 的 git post-receive 钩子：push 即部署（部署选项 A）。
+# 把 main 检出到文档目录，然后跑 build.py 重建首页/分类/归档/搜索索引。
+#
+# 路径通过环境变量配置（部署时在系统/unit 环境里设，或改默认值）：
+#   DOCSITE_REPO    bare 仓库路径      默认 /srv/docsite-content.git
+#   DOCSITE_WORK    文档检出目录        默认 /srv/docsite/site/docs
+#   DOCSITE_ROOT    build.py 所在目录   默认 /srv/docsite
+set -e
+export HOME="${HOME:-$PWD}"
+REPO="${DOCSITE_REPO:-/srv/docsite-content.git}"
+WORK="${DOCSITE_WORK:-/srv/docsite/site/docs}"
+DOCSITE_ROOT="${DOCSITE_ROOT:-/srv/docsite}"
+
+echo "[docsite post-receive] deploying..."
+# checkout main 到 work-tree。--force 覆盖以同步删除的文档。
+git --git-dir="$REPO" --work-tree="$WORK" checkout -f main
+
+# 重建索引；失败则非零退出，让 push 方看到部署失败（不静默吞错）
+cd "$DOCSITE_ROOT"
+if python3 build.py >> "$DOCSITE_ROOT/build.log" 2>&1; then
+  echo "[docsite post-receive] build ok, docs: $(find "$WORK" -maxdepth 1 -mindepth 1 -type d 2>/dev/null | wc -l)"
+else
+  echo "[docsite post-receive] build FAILED (see $DOCSITE_ROOT/build.log)"
+  exit 1
+fi

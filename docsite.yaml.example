@@ -1,0 +1,18 @@
+# docsite 站点配置示例
+# 复制为 docsite.yaml 后生效（docsite.yaml 已在 .gitignore，不入库）。
+# 不配置也能跑——所有项都有默认值。
+
+# 站点标题：显示在导航栏和浏览器标题
+site_name: 文档站
+
+# 文档目录：相对仓库根。每篇文档 = 该目录下的一个自包含子目录。
+docs_dir: site/docs
+
+# 可选：目录名「首段」→ 友好类别名。
+# 不配则类别直接用首段原文（如目录 guide_xxx → 类别 "guide"）。
+# .docmeta.yaml 里的 category 字段优先级最高，会覆盖这里的推断。
+category_map:
+  guide: 使用指南
+  report: 报告
+  design: 设计稿
+  api: API 文档
