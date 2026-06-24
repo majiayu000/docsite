@@ -53,7 +53,7 @@ def parse_meta(doc_dir: Path) -> dict:
 
 
 def parse_category(name: str, meta: dict, category_map: dict) -> tuple:
-    """返回 (一级label, 一级slug, 二级label|None, 二级slug|None)。
+    """返回 (一级label, 二级label|None)。slug 由 main 统一生成（避免冲突）。
     .docmeta category 支持 'a/b' 二级；否则用 category_map[目录首段] 自动推断。"""
     raw = meta.get("category")
     if raw:
@@ -64,10 +64,27 @@ def parse_category(name: str, meta: dict, category_map: dict) -> tuple:
         key = re.split(r"[_\-]", name, 1)[0] or name
         cat = category_map.get(key, key)
         sub = None
-    first = re.split(r"[_\-]", name, 1)[0] or name
-    cat_slug = slugify(cat) or slugify(first) or "cat"
-    sub_slug = slugify(sub) if sub else None
-    return cat, cat_slug, sub, sub_slug
+    return cat, sub
+
+
+def make_slug_map(labels) -> dict:
+    """label→唯一 slug。ASCII 优先 slugify；中文/冲突用 cat-N 兜底。"""
+    m = {}
+    used = set()
+    idx = 0
+    for lab in labels:
+        s = slugify(lab)
+        if not s:
+            s = f"cat-{idx}"
+            idx += 1
+        if s in used:
+            base, k = s, 1
+            while f"{base}-{k}" in used:
+                k += 1
+            s = f"{base}-{k}"
+        m[lab] = s
+        used.add(s)
+    return m
 
 
 def _date_str(v) -> str:
@@ -142,7 +159,7 @@ def load_docs(docs_dir: Path, category_map: dict) -> list:
         if not entry.exists():
             print(f"[build] 跳过（无入口 {entry_name}）: {d.name}", file=sys.stderr)
             continue
-        cat, cat_slug, sub, sub_slug = parse_category(d.name, meta, category_map)
+        cat, sub = parse_category(d.name, meta, category_map)
         broken = check_broken(d, entry_name) if entry_name.endswith((".html", ".htm")) else []
         if broken:
             print(f"[build] 断链 {len(broken)}: {d.name}", file=sys.stderr)
@@ -150,8 +167,8 @@ def load_docs(docs_dir: Path, category_map: dict) -> list:
         docs.append({
             "slug": d.name,
             "title": meta.get("title") or read_summary_title(d) or d.name,
-            "category": cat, "cat_slug": cat_slug,
-            "subcategory": sub, "sub_slug": sub_slug,
+            "category": cat, "cat_slug": None,
+            "subcategory": sub, "sub_slug": None,
             "date": _date_str(meta.get("date")) or infer_date(d.name, entry),
             "summary": meta.get("summary", ""),
             "entry": entry_name,
@@ -203,6 +220,12 @@ def main():
     category_map = cfg.get("category_map", {}) or {}
 
     docs = load_docs(docs_dir, category_map)
+    # 统一生成 category slug（避免中文/同前缀冲突），填回每篇文档
+    cat_slug = make_slug_map(list(dict.fromkeys(d["category"] for d in docs)))
+    sub_slug = make_slug_map(list(dict.fromkeys(d["subcategory"] for d in docs if d["subcategory"])))
+    for d in docs:
+        d["cat_slug"] = cat_slug[d["category"]]
+        d["sub_slug"] = sub_slug[d["subcategory"]] if d["subcategory"] else None
     cats, tags_cloud = build_tree(docs)
     env = Environment(loader=FileSystemLoader(str(TEMPLATES)),
                       autoescape=select_autoescape(["html", "xml"]))

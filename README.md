@@ -50,6 +50,26 @@ tags: [标签1, 标签2]
 ## 部署
 见 [DEPLOY.md](DEPLOY.md)：本地预览 / rsync 一键部署 / git push 自动部署。
 
+## 大文件 / 视频处理
+git 不适合存大视频（仓库膨胀、push/clone 慢）。docsite 的做法：**HTML+图片进 git，视频单独 rsync**。
+
+1. 内容仓库 `.gitignore` 排除视频（`*.mp4 *.mov *.mkv ...`），`git push` 只传 HTML+图片
+2. 视频用 `sync_videos.sh` 单独 rsync 到服务器对应文档的 `assets/`：
+   ```bash
+   ./sync_videos.sh                                          # 默认 ~/docsite-content -> gpu
+   DOCSITE_DOCS=user@host:/path ./sync_videos.sh /your/docs   # 自定义目标
+   ```
+
+发布含视频的文档：
+```bash
+python3 publish_doc.py your-doc          # 打包（视频进 dist/assets，本地预览完整）
+cp -R dist/your-doc ~/docsite-content/
+git add . && git commit && git push      # 传 HTML+图片（视频被 .gitignore 挡掉）
+./sync_videos.sh                         # 视频单独 rsync 到服务器
+```
+
+HTML 里 `<video src="assets/x.mp4" controls></video>` 即可，浏览器直接播。
+
 ## 项目结构
 ```
 docsite/
@@ -61,6 +81,7 @@ docsite/
 ├── docsite.yaml.example  # 配置模板
 ├── Caddyfile.example     # 部署模板
 ├── deploy.sh             # rsync 一键部署
+├── sync_videos.sh        # 视频单独 rsync（git 不存大视频）
 └── hooks/post-receive    # git 自动部署钩子
 ```
 
