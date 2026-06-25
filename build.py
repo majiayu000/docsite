@@ -153,8 +153,17 @@ def load_docs(docs_dir: Path, category_map: dict) -> list:
         meta = parse_meta(d)
         if meta.get("draft"):
             continue
-        entry_name = meta.get("entry") or (
-            "index.html" if (d / "index.html").exists() else "report.html")
+        entry_name = meta.get("entry")
+        if not entry_name:
+            for cand in ("index.html", "report.html"):
+                if (d / cand).exists():
+                    entry_name = cand
+                    break
+        if not entry_name:  # 单 html 文档（如 infra 报告）：取目录里唯一 html
+            htmls = [f.name for f in d.iterdir()
+                     if f.suffix.lower() in (".html", ".htm") and not f.name.startswith(".")]
+            if len(htmls) == 1:
+                entry_name = htmls[0]
         entry = d / entry_name
         if not entry.exists():
             print(f"[build] 跳过（无入口 {entry_name}）: {d.name}", file=sys.stderr)

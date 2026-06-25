@@ -78,13 +78,17 @@ def process_html(html_text: str, doc_dir: Path, assets_dir: Path, copied: set, b
 
 def main():
     if len(sys.argv) < 2:
-        sys.exit("用法: python3 publish_doc.py <源文档目录> [输出根目录]")
+        sys.exit("用法: python3 publish_doc.py <源文档目录或单个HTML> [输出根目录]")
     src = Path(sys.argv[1]).resolve()
-    if not src.is_dir():
-        sys.exit(f"[publish_doc] 不是目录: {src}")
     out_root = Path(sys.argv[2]).resolve() if len(sys.argv) > 2 else Path("dist").resolve()
-    entry = find_entry(src)
-    out = out_root / src.name
+    # 支持单 HTML 文件输入：doc_dir 取所在目录（资源从这里解析），入口即该文件
+    if src.is_file() and src.suffix.lower() in (".html", ".htm"):
+        doc_dir, entry, doc_slug = src.parent, src, src.stem
+    elif src.is_dir():
+        doc_dir, entry, doc_slug = src, find_entry(src), src.name
+    else:
+        sys.exit(f"[publish_doc] 不是目录或 HTML 文件: {src}")
+    out = out_root / doc_slug
     assets = out / "assets"
     if out.exists():
         shutil.rmtree(out)
@@ -92,15 +96,15 @@ def main():
 
     copied, broken = set(), set()
     html = entry.read_text(encoding="utf-8", errors="replace")
-    html = process_html(html, src, assets, copied, broken)
+    html = process_html(html, doc_dir, assets, copied, broken)
     (out / entry.name).write_text(html, encoding="utf-8")
 
     for f in (".docmeta.yaml", "summary.md"):  # 元数据/摘要一并带出
-        p = src / f
+        p = doc_dir / f
         if p.exists():
             shutil.copy2(p, out / f)
 
-    print(f"[publish_doc] {src.name}: 入口={entry.name} 资源={len(copied)} 断链={len(broken)} -> {out}")
+    print(f"[publish_doc] {doc_slug}: 入口={entry.name} 资源={len(copied)} 断链={len(broken)} -> {out}")
     for b in sorted(broken):
         print(f"  [断链] {b}")
     if broken:
