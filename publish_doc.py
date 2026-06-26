@@ -58,7 +58,13 @@ def remap(url: str, doc_dir: Path, assets_dir: Path, copied: set, broken: set) -
         return url  # 断链：保留原路径，由 build.py 校验环节标记
     flat = flatten(target)
     if flat not in copied:
-        shutil.copy2(target, assets_dir / flat)
+        if target.suffix.lower() in (".html", ".htm"):
+            # 子 html 报告：递归重写其内部引用并收集其资源，避免双重 assets/ 路径
+            sub = target.read_text(encoding="utf-8", errors="replace")
+            sub = process_html(sub, target.parent, assets_dir, copied, broken)
+            (assets_dir / flat).write_text(sub, encoding="utf-8")
+        else:
+            shutil.copy2(target, assets_dir / flat)
         copied.add(flat)
     suffix = url[len(path_part):]  # 保留 #锚点 / ?查询
     return f"assets/{flat}{suffix}"
