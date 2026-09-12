@@ -46,6 +46,8 @@ def find_entry(doc_dir: Path) -> Path:
     root = doc_dir.resolve()
     meta = doc_dir / ".docmeta.yaml"
     if meta.exists():
+        if not is_within(meta.resolve(), root):
+            raise SystemExit("[publish_doc] .docmeta.yaml 路径越界")
         m = re.search(r"^entry:\s*(.+)$", meta.read_text(), re.M)
         if m:
             entry_rel = m.group(1).strip()
@@ -155,6 +157,8 @@ def main():
     for f in (".docmeta.yaml", "summary.md"):  # 元数据/摘要一并带出
         p = doc_dir / f
         if p.exists():
+            if not is_within(p.resolve(), allowed_root):
+                raise SystemExit(f"[publish_doc] {f} 路径越界")
             shutil.copy2(p, out / f)
 
     print(f"[publish_doc] {doc_slug}: 入口={entry.name} 资源={len(copied)} 断链={len(broken)} -> {out}")
