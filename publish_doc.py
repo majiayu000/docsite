@@ -44,7 +44,15 @@ def find_entry(doc_dir: Path) -> Path:
     raise SystemExit(f"[publish_doc] 找不到入口 HTML（index.html/report.html）: {doc_dir}")
 
 
-def remap(url: str, doc_dir: Path, assets_dir: Path, copied: set, broken: set) -> str:
+def remap(
+    url: str,
+    doc_dir: Path,
+    assets_dir: Path,
+    copied: set,
+    broken: set,
+    entry: Path | None = None,
+    from_assets: bool = False,
+) -> str:
     """把一个本地 url 解析、复制、重写为 assets/ 路径；外链/锚点原样返回。"""
     url = url.strip()
     if not is_local(url):
@@ -56,26 +64,51 @@ def remap(url: str, doc_dir: Path, assets_dir: Path, copied: set, broken: set) -
     if not target.exists():
         broken.add(url)
         return url  # 断链：保留原路径，由 build.py 校验环节标记
+    suffix = url[len(path_part):]  # 保留 #锚点 / ?查询
+
+    # 入口 HTML 留在输出根目录，不进 assets/；回链按相对位置改写并短路，避免再入 process_html
+    if entry is not None and target == entry.resolve():
+        if from_assets:
+            return f"../{entry.name}{suffix}"
+        return f"{entry.name}{suffix}"
+
     flat = flatten(target)
     if flat not in copied:
+        # 先标记再递归，打断 A↔B 与更深环，避免 RecursionError
+        copied.add(flat)
         if target.suffix.lower() in (".html", ".htm"):
             # 子 html 报告：递归重写其内部引用并收集其资源，避免双重 assets/ 路径
             sub = target.read_text(encoding="utf-8", errors="replace")
-            sub = process_html(sub, target.parent, assets_dir, copied, broken)
+            sub = process_html(
+                sub, target.parent, assets_dir, copied, broken, entry=entry, from_assets=True
+            )
             (assets_dir / flat).write_text(sub, encoding="utf-8")
         else:
             shutil.copy2(target, assets_dir / flat)
-        copied.add(flat)
-    suffix = url[len(path_part):]  # 保留 #锚点 / ?查询
     return f"assets/{flat}{suffix}"
 
 
-def process_html(html_text: str, doc_dir: Path, assets_dir: Path, copied: set, broken: set) -> str:
+def process_html(
+    html_text: str,
+    doc_dir: Path,
+    assets_dir: Path,
+    copied: set,
+    broken: set,
+    entry: Path | None = None,
+    from_assets: bool = False,
+) -> str:
     def cb_link(m):
-        return f'{m.group(1)}="{remap(m.group(2), doc_dir, assets_dir, copied, broken)}"'
+        return (
+            f'{m.group(1)}="'
+            f'{remap(m.group(2), doc_dir, assets_dir, copied, broken, entry=entry, from_assets=from_assets)}"'
+        )
 
     def cb_url(m):
-        return f'url("{remap(m.group(1), doc_dir, assets_dir, copied, broken)}")'
+        return (
+            f'url("'
+            f'{remap(m.group(1), doc_dir, assets_dir, copied, broken, entry=entry, from_assets=from_assets)}"'
+            f'")'
+        )
 
     html_text = LINK_RE.sub(cb_link, html_text)
     html_text = URL_RE.sub(cb_url, html_text)
@@ -102,7 +135,7 @@ def main():
 
     copied, broken = set(), set()
     html = entry.read_text(encoding="utf-8", errors="replace")
-    html = process_html(html, doc_dir, assets, copied, broken)
+    html = process_html(html, doc_dir, assets, copied, broken, entry=entry, from_assets=False)
     (out / entry.name).write_text(html, encoding="utf-8")
 
     for f in (".docmeta.yaml", "summary.md"):  # 元数据/摘要一并带出
