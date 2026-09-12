@@ -85,6 +85,10 @@ def remap(
             (assets_dir / flat).write_text(sub, encoding="utf-8")
         else:
             shutil.copy2(target, assets_dir / flat)
+    # Nested pages live under assets/; peer HTML/images must be same-dir relative,
+    # not assets/<flat>, or browsers resolve to assets/assets/...
+    if from_assets:
+        return f"{flat}{suffix}"
     return f"assets/{flat}{suffix}"
 
 
