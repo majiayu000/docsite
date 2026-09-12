@@ -3,7 +3,8 @@
 
 扫描入口 HTML 引用的全部本地资源（img/video/source/link/script/a 的 src/href，
 以及 CSS 的 url()），复制进 assets/，并把 HTML 里的路径重写为本地 assets/ 路径。
-跨目录引用（如 ../兄弟目录/outputs/x.png）会被解析、复制进来，产出可独立同步的文档。
+仅允许源文档目录内的本地资源；绝对路径与越界相对路径（如 ../兄弟目录）视为断链，
+不复制出目录外的文件。
 
 用法:
     python3 publish_doc.py <源文档目录> [输出根目录，默认 dist]
@@ -26,6 +27,15 @@ def is_local(url: str) -> bool:
     return not u.startswith(SKIP_PREFIX)
 
 
+def is_within(path: Path, root: Path) -> bool:
+    """True if resolved path stays under resolved root (no path traversal escape)."""
+    try:
+        path.resolve().relative_to(root.resolve())
+        return True
+    except ValueError:
+        return False
+
+
 def flatten(target: Path) -> str:
     """内容寻址式命名：<8位路径哈希>_<原文件名>，保证唯一且保留语义。"""
     h = hashlib.sha1(str(target.resolve()).encode()).hexdigest()[:8]
@@ -33,26 +43,51 @@ def flatten(target: Path) -> str:
 
 
 def find_entry(doc_dir: Path) -> Path:
+    root = doc_dir.resolve()
     meta = doc_dir / ".docmeta.yaml"
     if meta.exists():
         m = re.search(r"^entry:\s*(.+)$", meta.read_text(), re.M)
-        if m and (doc_dir / m.group(1).strip()).exists():
-            return (doc_dir / m.group(1).strip()).resolve()
+        if m:
+            entry_rel = m.group(1).strip()
+            if entry_rel:
+                if Path(entry_rel).is_absolute():
+                    raise SystemExit(f"[publish_doc] entry 禁止绝对路径: {entry_rel}")
+                candidate = (doc_dir / entry_rel).resolve()
+                if not is_within(candidate, root):
+                    raise SystemExit(f"[publish_doc] entry 路径越界: {entry_rel}")
+                if candidate.exists():
+                    return candidate
     for name in ("index.html", "report.html"):
         if (doc_dir / name).exists():
             return (doc_dir / name).resolve()
     raise SystemExit(f"[publish_doc] 找不到入口 HTML（index.html/report.html）: {doc_dir}")
 
 
-def remap(url: str, doc_dir: Path, assets_dir: Path, copied: set, broken: set) -> str:
-    """把一个本地 url 解析、复制、重写为 assets/ 路径；外链/锚点原样返回。"""
+def remap(
+    url: str,
+    base_dir: Path,
+    allowed_root: Path,
+    assets_dir: Path,
+    copied: set,
+    broken: set,
+) -> str:
+    """把一个本地 url 解析、复制、重写为 assets/ 路径；外链/锚点原样返回。
+
+    绝对本地路径与解析后越出 allowed_root 的目标视为断链，不复制。
+    """
     url = url.strip()
     if not is_local(url):
         return url
     path_part = url.split("#")[0].split("?")[0]
     if not path_part:
         return url
-    target = (doc_dir / path_part).resolve()
+    if Path(path_part).is_absolute():
+        broken.add(url)
+        return url
+    target = (base_dir / path_part).resolve()
+    if not is_within(target, allowed_root):
+        broken.add(url)
+        return url
     if not target.exists():
         broken.add(url)
         return url  # 断链：保留原路径，由 build.py 校验环节标记
@@ -61,7 +96,7 @@ def remap(url: str, doc_dir: Path, assets_dir: Path, copied: set, broken: set) -
         if target.suffix.lower() in (".html", ".htm"):
             # 子 html 报告：递归重写其内部引用并收集其资源，避免双重 assets/ 路径
             sub = target.read_text(encoding="utf-8", errors="replace")
-            sub = process_html(sub, target.parent, assets_dir, copied, broken)
+            sub = process_html(sub, target.parent, allowed_root, assets_dir, copied, broken)
             (assets_dir / flat).write_text(sub, encoding="utf-8")
         else:
             shutil.copy2(target, assets_dir / flat)
@@ -70,12 +105,19 @@ def remap(url: str, doc_dir: Path, assets_dir: Path, copied: set, broken: set) -
     return f"assets/{flat}{suffix}"
 
 
-def process_html(html_text: str, doc_dir: Path, assets_dir: Path, copied: set, broken: set) -> str:
+def process_html(
+    html_text: str,
+    base_dir: Path,
+    allowed_root: Path,
+    assets_dir: Path,
+    copied: set,
+    broken: set,
+) -> str:
     def cb_link(m):
-        return f'{m.group(1)}="{remap(m.group(2), doc_dir, assets_dir, copied, broken)}"'
+        return f'{m.group(1)}="{remap(m.group(2), base_dir, allowed_root, assets_dir, copied, broken)}"'
 
     def cb_url(m):
-        return f'url("{remap(m.group(1), doc_dir, assets_dir, copied, broken)}")'
+        return f'url("{remap(m.group(1), base_dir, allowed_root, assets_dir, copied, broken)}")'
 
     html_text = LINK_RE.sub(cb_link, html_text)
     html_text = URL_RE.sub(cb_url, html_text)
@@ -94,6 +136,7 @@ def main():
         doc_dir, entry, doc_slug = src, find_entry(src), src.name
     else:
         sys.exit(f"[publish_doc] 不是目录或 HTML 文件: {src}")
+    allowed_root = doc_dir.resolve()
     out = out_root / doc_slug
     assets = out / "assets"
     if out.exists():
@@ -102,7 +145,7 @@ def main():
 
     copied, broken = set(), set()
     html = entry.read_text(encoding="utf-8", errors="replace")
-    html = process_html(html, doc_dir, assets, copied, broken)
+    html = process_html(html, doc_dir, allowed_root, assets, copied, broken)
     (out / entry.name).write_text(html, encoding="utf-8")
 
     for f in (".docmeta.yaml", "summary.md"):  # 元数据/摘要一并带出
