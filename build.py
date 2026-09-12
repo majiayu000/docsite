@@ -164,6 +164,9 @@ def load_docs(docs_dir: Path, category_map: dict) -> list:
                      if f.suffix.lower() in (".html", ".htm") and not f.name.startswith(".")]
             if len(htmls) == 1:
                 entry_name = htmls[0]
+        if not entry_name:
+            print(f"[build] 跳过（无入口）: {d.name}", file=sys.stderr)
+            continue
         entry = d / entry_name
         if not entry.exists():
             print(f"[build] 跳过（无入口 {entry_name}）: {d.name}", file=sys.stderr)
