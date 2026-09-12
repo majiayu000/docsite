@@ -58,8 +58,12 @@ def find_entry(doc_dir: Path) -> Path:
                 if candidate.exists():
                     return candidate
     for name in ("index.html", "report.html"):
-        if (doc_dir / name).exists():
-            return (doc_dir / name).resolve()
+        candidate_path = doc_dir / name
+        if candidate_path.exists():
+            candidate = candidate_path.resolve()
+            if not is_within(candidate, root):
+                raise SystemExit(f"[publish_doc] entry 路径越界: {name}")
+            return candidate
     raise SystemExit(f"[publish_doc] 找不到入口 HTML（index.html/report.html）: {doc_dir}")
 
 

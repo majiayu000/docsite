@@ -18,6 +18,6 @@
 <p><img src="assets/diagram.svg" alt="示例图"></p>
 
 <h2>为什么强调自包含</h2>
-<p>团队文档站常踩的坑：一篇 HTML 引用了服务器别处的图片，换个环境就破图。docsite 要求每篇文档自带全部媒体，<code>publish_doc.py</code> 还能自动把跨目录引用收拢进来，从根本上避免断链。</p>
+<p>团队文档站常踩的坑：一篇 HTML 引用了服务器别处的图片，换个环境就破图。docsite 要求每篇文档自带全部媒体（放在文档目录内），<code>publish_doc.py</code> 会把目录内本地资源收进 <code>assets/</code>；越界的 <code>../</code> 引用视为断链，从根本上避免把外部文件打进包。</p>
 </body>
 </html>

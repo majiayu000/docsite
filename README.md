@@ -28,8 +28,9 @@ python3 -m http.server -d site 8090
 2. 放进 `site/docs/`，可选加 `.docmeta.yaml`
 3. `python3 build.py`
 
-**跨目录引用的文档**（HTML 里有 `../xxx`）先打包成自包含：
+**打包成自包含**（把文档目录内的本地资源收进 `assets/` 并重写路径）。资源必须位于源文档目录内；绝对路径与 `../` 越界引用会记为断链并使打包失败：
 ```bash
+# 先把外部图片拷进文档目录（或改 HTML 为同目录/子目录相对路径），再打包
 python3 publish_doc.py path/to/your-doc     # 产物在 dist/your-doc/
 cp -R dist/your-doc site/docs/
 python3 build.py

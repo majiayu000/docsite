@@ -30,10 +30,11 @@
 </ol>
 <p>站点首页、分类页、搜索页会自动更新。</p>
 
-<h2>跨目录引用的文档怎么办</h2>
-<p>如果你的 HTML 里有 <code>src="../别的目录/图片.png"</code> 这种跨目录引用，先用 <code>publish_doc.py</code> 打包成自包含：</p>
-<pre><code>python3 publish_doc.py path/to/your-doc
-# 产物在 dist/your-doc/，所有图片已收进 assets/，路径已重写</code></pre>
+<h2>把文档打包成自包含</h2>
+<p>图片等资源必须放在文档目录内（同目录或子目录）。用 <code>publish_doc.py</code> 把目录内本地资源收进 <code>assets/</code> 并重写路径；<code>../</code> 越界引用会记为断链并使打包失败：</p>
+<pre><code># 先把外部图片拷进文档目录，再打包
+python3 publish_doc.py path/to/your-doc
+# 产物在 dist/your-doc/，目录内图片已收进 assets/，路径已重写</code></pre>
 
 <h2>下一步</h2>
 <p>看另一篇 demo「示例报告（带图片）」了解带图文档；阅读仓库 README 了解部署。</p>
