@@ -2,6 +2,7 @@ import importlib.util
 import os
 from pathlib import Path
 import shutil
+import stat
 import subprocess
 import tempfile
 import time
@@ -93,7 +94,8 @@ class ContentSymlinkTests(unittest.TestCase):
         app.mkdir()
         (app / "build.py").write_text(
             "from pathlib import Path\nPath('build-ran').touch()\n")
-        self.git("-c", "init.defaultBranch=master", "init", "--bare", str(repo))
+        self.git("-c", "init.defaultBranch=master", "init", "--bare",
+                 "--shared=group", str(repo))
         self.git("init", "-b", "main", str(source))
         self.git("-C", str(source), "config", "user.name", "Docsite test")
         self.git("-C", str(source), "config", "user.email", "test@example.com")
@@ -105,8 +107,15 @@ class ContentSymlinkTests(unittest.TestCase):
         env = {**os.environ, "DOCSITE_REPO": str(repo),
                "DOCSITE_WORK": str(work), "DOCSITE_ROOT": str(app)}
         safe = subprocess.run(["bash", str(ROOT / "hooks/post-receive")],
-                              env=env, capture_output=True, text=True)
+                              env=env, capture_output=True, text=True, umask=0o022)
         self.assertEqual(safe.returncode, 0, safe.stdout + safe.stderr)
+        lock = repo / "docsite-deploy.lock"
+        lock_stat = lock.stat()
+        self.assertEqual(stat.S_IMODE(lock_stat.st_mode) & 0o060, 0o060)
+        self.assertEqual(lock_stat.st_gid, repo.stat().st_gid)
+        self.assertFalse(lock_stat.st_mode & stat.S_IWOTH)
+        # Lock creation must not change the build subprocess's original umask.
+        self.assertEqual(stat.S_IMODE((app / "build-ran").stat().st_mode), 0o644)
         self.assertEqual(self.git("--git-dir", str(repo), "symbolic-ref", "HEAD")
                          .stdout.strip(), "refs/heads/main")
         clone = self.root / "clone"
@@ -121,6 +130,7 @@ class ContentSymlinkTests(unittest.TestCase):
         updated = subprocess.run(["bash", str(ROOT / "hooks/post-receive")],
                                  env=env, capture_output=True, text=True)
         self.assertEqual(updated.returncode, 0, updated.stdout + updated.stderr)
+        self.assertEqual(lock.stat().st_ino, lock_stat.st_ino)
         self.assertFalse((work / "old.html").exists())
         (app / "build-ran").unlink()
         safe_sha = self.git("--git-dir", str(repo), "rev-parse", "main").stdout.strip()

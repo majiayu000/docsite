@@ -16,10 +16,14 @@ echo "[docsite post-receive] deploying..."
 # Hold one repository lock through target resolution, validation, checkout and build.
 exec python3 -c '
 import fcntl
+import os
 import subprocess
 import sys
 
+# Create a group-writable lock for the documented --shared=group repository.
+original_umask = os.umask(0o007)
 with open(sys.argv[1] + "/docsite-deploy.lock", "a") as lock:
+    os.umask(original_umask)
     fcntl.flock(lock, fcntl.LOCK_EX)
     sys.exit(subprocess.run(["bash", "-s", "--", *sys.argv[1:]]).returncode)
 ' "$REPO" "$WORK" "$DOCSITE_ROOT" <<'DEPLOY'
