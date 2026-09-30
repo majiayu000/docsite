@@ -28,12 +28,14 @@ python3 -m http.server -d site 8090
 2. 放进 `site/docs/`，可选加 `.docmeta.yaml`
 3. `python3 build.py`
 
-**跨目录引用的文档**（HTML 里有 `../xxx`）先打包成自包含：
+用 `publish_doc.py` 打包文档目录内的资源，生成可独立同步的自包含文档：
 ```bash
 python3 publish_doc.py path/to/your-doc     # 产物在 dist/your-doc/
 cp -R dist/your-doc site/docs/
 python3 build.py
 ```
+
+入口（包括 `.docmeta.yaml` 的 `entry:`）、资源和元数据必须位于源文档目录内。绝对路径、越界的 `../` 和指向目录外的符号链接会被拒绝，命令以状态码 1 退出。嵌套 HTML 可引用源文档目录内的其他资源；目录外的资源应先复制进文档目录并更新引用。
 
 ### 文档元数据 `.docmeta.yaml`（可选）
 ```yaml
