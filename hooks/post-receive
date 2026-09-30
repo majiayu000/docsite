@@ -13,6 +13,21 @@ WORK="${DOCSITE_WORK:-/srv/docsite/site/docs}"
 DOCSITE_ROOT="${DOCSITE_ROOT:-/srv/docsite}"
 
 echo "[docsite post-receive] deploying..."
+# Hold one repository lock through target resolution, validation, checkout and build.
+exec python3 -c '
+import fcntl
+import subprocess
+import sys
+
+with open(sys.argv[1] + "/docsite-deploy.lock", "a") as lock:
+    fcntl.flock(lock, fcntl.LOCK_EX)
+    sys.exit(subprocess.run(["bash", "-s", "--", *sys.argv[1:]]).returncode)
+' "$REPO" "$WORK" "$DOCSITE_ROOT" <<'DEPLOY'
+set -eo pipefail
+REPO="$1"
+WORK="$2"
+DOCSITE_ROOT="$3"
+
 TARGET="$(git --git-dir="$REPO" rev-parse refs/heads/main)"
 # Refuse symlinks before checkout: a failed build cannot hide a link already served.
 git --git-dir="$REPO" ls-tree -r -z "$TARGET" | python3 -c '
@@ -25,6 +40,7 @@ for entry in sys.stdin.buffer.read().split(b"\0"):
 '
 # 检出刚验证的树，覆盖并同步删除；保留 bare 仓库的 HEAD 指向 main。
 git --git-dir="$REPO" --work-tree="$WORK" read-tree --reset -u "$TARGET"
+git --git-dir="$REPO" symbolic-ref HEAD refs/heads/main
 
 # 重建索引；失败则非零退出，让 push 方看到部署失败（不静默吞错）
 cd "$DOCSITE_ROOT"
@@ -34,3 +50,4 @@ else
   echo "[docsite post-receive] build FAILED (see $DOCSITE_ROOT/build.log)"
   exit 1
 fi
+DEPLOY

@@ -239,7 +239,7 @@ def main():
 
     cfg = load_config()
     site_name = cfg.get("site_name", "文档站")
-    docs_dir = (ROOT / cfg.get("docs_dir", "site/docs")).resolve()
+    docs_dir = ROOT / cfg.get("docs_dir", "site/docs")
     out_dir = (ROOT / "site").resolve()
     category_map = cfg.get("category_map", {}) or {}
 
