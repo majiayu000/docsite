@@ -6,15 +6,25 @@
 #   DOCSITE_REPO    bare 仓库路径      默认 /srv/docsite-content.git
 #   DOCSITE_WORK    文档检出目录        默认 /srv/docsite/site/docs
 #   DOCSITE_ROOT    build.py 所在目录   默认 /srv/docsite
-set -e
+set -eo pipefail
 export HOME="${HOME:-$PWD}"
 REPO="${DOCSITE_REPO:-/srv/docsite-content.git}"
 WORK="${DOCSITE_WORK:-/srv/docsite/site/docs}"
 DOCSITE_ROOT="${DOCSITE_ROOT:-/srv/docsite}"
 
 echo "[docsite post-receive] deploying..."
-# checkout main 到 work-tree。--force 覆盖以同步删除的文档。
-git --git-dir="$REPO" --work-tree="$WORK" checkout -f main
+TARGET="$(git --git-dir="$REPO" rev-parse refs/heads/main)"
+# Refuse symlinks before checkout: a failed build cannot hide a link already served.
+git --git-dir="$REPO" ls-tree -r -z "$TARGET" | python3 -c '
+import os
+import sys
+for entry in sys.stdin.buffer.read().split(b"\0"):
+    if entry.startswith(b"120000 "):
+        name = os.fsdecode(entry.split(b"\t", 1)[1])
+        sys.exit(f"[docsite post-receive] content symlink is not allowed: {name!r}")
+'
+# 检出刚验证的树，覆盖并同步删除；保留 bare 仓库的 HEAD 指向 main。
+git --git-dir="$REPO" --work-tree="$WORK" read-tree --reset -u "$TARGET"
 
 # 重建索引；失败则非零退出，让 push 方看到部署失败（不静默吞错）
 cd "$DOCSITE_ROOT"
