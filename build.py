@@ -45,7 +45,8 @@ def parse_meta(doc_dir: Path) -> dict:
     if yp.exists():
         try:
             import yaml
-            return yaml.safe_load(yp.read_text(encoding="utf-8")) or {}
+            meta = yaml.safe_load(yp.read_text(encoding="utf-8"))
+            return {} if meta is None else meta
         except ImportError:
             print(f"[build] 警告: {yp.name} 需要 pyyaml，已跳过", file=sys.stderr)
             return {}
@@ -147,10 +148,26 @@ def load_docs(docs_dir: Path, category_map: dict) -> list:
     if not docs_dir.exists():
         print(f"[build] 警告: {docs_dir} 不存在，尚无文档", file=sys.stderr)
         return docs
+    meta_errors = (ValueError, TypeError)
+    try:
+        import yaml
+    except ImportError:
+        pass  # parse_meta 保留 pyyaml 缺失时的警告和行为
+    else:
+        meta_errors += (yaml.YAMLError,)
     for d in sorted(docs_dir.iterdir()):
         if not d.is_dir() or d.name.startswith(("_", ".")):
             continue
-        meta = parse_meta(d)
+        try:
+            meta = parse_meta(d)
+            if not isinstance(meta, dict):
+                raise TypeError(f"metadata must be a mapping, got {type(meta).__name__}")
+            tags = meta.get("tags", [])
+            if not isinstance(tags, list):
+                raise TypeError(f"tags must be a list, got {type(tags).__name__}")
+        except meta_errors as e:
+            print(f"[build] 跳过（元数据错误）: {d}: {type(e).__name__}: {e}", file=sys.stderr)
+            continue
         if meta.get("draft"):
             continue
         entry_name = meta.get("entry")
@@ -183,7 +200,7 @@ def load_docs(docs_dir: Path, category_map: dict) -> list:
             "entry": entry_name,
             "url": f"docs/{d.name}/{entry_name}",
             "cover": f"docs/{d.name}/{cover}" if cover and (d / cover).exists() else None,
-            "tags": [str(t) for t in meta.get("tags", [])],
+            "tags": [str(t) for t in tags],
             "broken_count": len(broken),
         })
     docs.sort(key=lambda x: x["date"], reverse=True)
