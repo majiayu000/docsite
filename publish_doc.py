@@ -53,7 +53,7 @@ def remap(url: str, doc_dir: Path, assets_dir: Path, copied: set, broken: set) -
     if not path_part:
         return url
     target = (doc_dir / path_part).resolve()
-    if not target.exists():
+    if not target.is_file():
         broken.add(url)
         return url  # 断链：保留原路径，由 build.py 校验环节标记
     flat = flatten(target)
