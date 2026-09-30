@@ -13,7 +13,8 @@
 
 ## 快速开始
 ```bash
-git clone <repo> docsite && cd docsite
+git clone https://github.com/majiayu000/docsite.git
+cd docsite
 pip install jinja2 pyyaml
 
 # 预览自带 demo
