@@ -33,14 +33,15 @@ WORK="$2"
 DOCSITE_ROOT="$3"
 
 TARGET="$(git --git-dir="$REPO" rev-parse refs/heads/main)"
-# Refuse symlinks before checkout: a failed build cannot hide a link already served.
+# Refuse symlinks and gitlinks before checkout into the public tree.
 git --git-dir="$REPO" ls-tree -r -z "$TARGET" | python3 -c '
 import os
 import sys
 for entry in sys.stdin.buffer.read().split(b"\0"):
-    if entry.startswith(b"120000 "):
+    if entry.startswith((b"120000 ", b"160000 ")):
         name = os.fsdecode(entry.split(b"\t", 1)[1])
-        sys.exit(f"[docsite post-receive] content symlink is not allowed: {name!r}")
+        kind = "symlink" if entry.startswith(b"120000 ") else "gitlink"
+        sys.exit(f"[docsite post-receive] content {kind} is not allowed: {name!r}")
 '
 # 检出刚验证的树，覆盖并同步删除；保留 bare 仓库的 HEAD 指向 main。
 git --git-dir="$REPO" --work-tree="$WORK" read-tree --reset -u "$TARGET"

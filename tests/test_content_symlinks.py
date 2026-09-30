@@ -20,7 +20,7 @@ class ContentSymlinkTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        self.root = Path(self.temp.name)
+        self.root = Path(self.temp.name).resolve()
         self.docs = self.root / "docs"
         self.doc = self.docs / "report"
         self.doc.mkdir(parents=True)
@@ -84,6 +84,83 @@ class ContentSymlinkTests(unittest.TestCase):
                     self.assertFalse((self.root / "site" / "_data").exists())
                 finally:
                     link.unlink()
+
+    def test_load_docs_rejects_symlink_ancestor(self):
+        link = self.root / "linked-parent"
+        link.symlink_to(self.root)
+        docs_dir = link / "docs"
+        self.assertFalse(docs_dir.is_symlink())
+        with self.assertRaisesRegex(ValueError, "symlink"):
+            build.load_docs(docs_dir, {})
+
+    def test_main_rejects_docs_root_symlink_ancestor(self):
+        for config, relative in (({}, "site"),
+                                 ({"docs_dir": "nested/linked-parent/docs"},
+                                  "nested/linked-parent"),
+                                 ({"docs_dir": str(self.root / "linked-parent/docs")},
+                                  "linked-parent")):
+            with self.subTest(config=config):
+                link = self.root / relative
+                link.parent.mkdir(parents=True, exist_ok=True)
+                link.symlink_to(self.root)
+                try:
+                    with mock.patch.object(build, "ROOT", self.root), \
+                         mock.patch.object(build, "load_config", return_value=config):
+                        with self.assertRaisesRegex(ValueError, "symlink"):
+                            build.main()
+                    self.assertFalse((self.root / "_data").exists())
+                    self.assertFalse((self.root / "site" / "_data").exists())
+                finally:
+                    link.unlink()
+
+    def test_hook_rejects_gitlink_before_public_checkout(self):
+        repo = self.root / "content.git"
+        source = self.root / "source"
+        work = self.root / "public-docs"
+        app = self.root / "app"
+        work.mkdir()
+        app.mkdir()
+        (app / "build.py").write_text(
+            "from pathlib import Path\nPath('build-ran').touch()\n")
+        self.git("init", "--bare", str(repo))
+        self.git("init", "-b", "main", str(source))
+        self.git("-C", str(source), "config", "user.name", "Docsite test")
+        self.git("-C", str(source), "config", "user.email", "test@example.com")
+        report = source / "report"
+        report.mkdir()
+        (report / "index.html").write_text("<h1>Safe report</h1>")
+        (source / "index.html").write_text("<h1>Safe</h1>")
+        self.git("-C", str(source), "add", ".")
+        self.git("-C", str(source), "commit", "-m", "safe content")
+        self.git("-C", str(source), "push", str(repo), "main")
+        env = {**os.environ, "DOCSITE_REPO": str(repo),
+               "DOCSITE_WORK": str(work), "DOCSITE_ROOT": str(app)}
+        hook = ["bash", str(ROOT / "hooks/post-receive")]
+        safe = subprocess.run(hook, env=env, capture_output=True, text=True)
+        self.assertEqual(safe.returncode, 0, safe.stdout + safe.stderr)
+        (app / "build-ran").unlink()
+        retained = work / "report" / "retained.html"
+        retained.write_text("<h1>Untracked public content</h1>")
+        safe_sha = self.git("-C", str(source), "rev-parse", "HEAD").stdout.strip()
+        self.git("-C", str(source), "rm", "-r", "report")
+        self.git("-C", str(source), "update-index", "--add", "--cacheinfo",
+                 f"160000,{safe_sha},report")
+        (source / "index.html").write_text("<h1>Unsafe deployment</h1>")
+        self.git("-C", str(source), "add", "index.html")
+        self.git("-C", str(source), "commit", "-m", "gitlink content")
+        self.git("-C", str(source), "push", str(repo), "main")
+        rejected = subprocess.run(hook, env=env, capture_output=True, text=True)
+        self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+        self.assertIn("gitlink", rejected.stdout + rejected.stderr)
+        self.assertEqual((work / "index.html").read_text(), "<h1>Safe</h1>")
+        self.assertEqual((work / "report" / "index.html").read_text(),
+                         "<h1>Safe report</h1>")
+        self.assertEqual(retained.read_text(), "<h1>Untracked public content</h1>")
+        self.assertFalse((app / "build-ran").exists())
+        self.assertIn("100644", self.git("--git-dir", str(repo), "ls-files",
+                                        "--stage", "report/index.html").stdout)
+        self.assertIn("160000 commit", self.git("--git-dir", str(repo), "ls-tree",
+                                               "main", "report").stdout)
 
     def test_hook_rejects_git_symlink_before_public_checkout(self):
         repo = self.root / "content.git"

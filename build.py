@@ -151,6 +151,10 @@ def check_broken(doc_dir: Path, entry_name: str) -> list:
 
 def load_docs(docs_dir: Path, category_map: dict) -> list:
     docs = []
+    # Keep ancestors unresolved so links cannot hide above the docs root.
+    for path in docs_dir.parents:
+        if path.is_symlink():
+            raise ValueError(f"[build] content symlink is not allowed: {path}")
     # A static server can follow links even when the index never references them.
     paths = [docs_dir]
     while paths:
