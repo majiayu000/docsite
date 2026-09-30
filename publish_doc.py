@@ -44,8 +44,8 @@ def find_entry(doc_dir: Path) -> Path:
     raise SystemExit(f"[publish_doc] 找不到入口 HTML（index.html/report.html）: {doc_dir}")
 
 
-def remap(url: str, doc_dir: Path, assets_dir: Path, copied: set, broken: set) -> str:
-    """把一个本地 url 解析、复制、重写为 assets/ 路径；外链/锚点原样返回。"""
+def remap(url: str, doc_dir: Path, assets_dir: Path, copied: set, broken: set, assets_prefix: str) -> str:
+    """把本地 url 解析、复制、重写为相对当前输出页的路径；外链/锚点原样返回。"""
     url = url.strip()
     if not is_local(url):
         return url
@@ -61,21 +61,21 @@ def remap(url: str, doc_dir: Path, assets_dir: Path, copied: set, broken: set) -
         if target.suffix.lower() in (".html", ".htm"):
             # 子 html 报告：递归重写其内部引用并收集其资源，避免双重 assets/ 路径
             sub = target.read_text(encoding="utf-8", errors="replace")
-            sub = process_html(sub, target.parent, assets_dir, copied, broken)
+            sub = process_html(sub, target.parent, assets_dir, copied, broken, "")
             (assets_dir / flat).write_text(sub, encoding="utf-8")
         else:
             shutil.copy2(target, assets_dir / flat)
         copied.add(flat)
     suffix = url[len(path_part):]  # 保留 #锚点 / ?查询
-    return f"assets/{flat}{suffix}"
+    return f"{assets_prefix}{flat}{suffix}"
 
 
-def process_html(html_text: str, doc_dir: Path, assets_dir: Path, copied: set, broken: set) -> str:
+def process_html(html_text: str, doc_dir: Path, assets_dir: Path, copied: set, broken: set, assets_prefix: str) -> str:
     def cb_link(m):
-        return f'{m.group(1)}="{remap(m.group(2), doc_dir, assets_dir, copied, broken)}"'
+        return f'{m.group(1)}="{remap(m.group(2), doc_dir, assets_dir, copied, broken, assets_prefix)}"'
 
     def cb_url(m):
-        return f'url("{remap(m.group(1), doc_dir, assets_dir, copied, broken)}")'
+        return f'url("{remap(m.group(1), doc_dir, assets_dir, copied, broken, assets_prefix)}")'
 
     html_text = LINK_RE.sub(cb_link, html_text)
     html_text = URL_RE.sub(cb_url, html_text)
@@ -102,7 +102,7 @@ def main():
 
     copied, broken = set(), set()
     html = entry.read_text(encoding="utf-8", errors="replace")
-    html = process_html(html, doc_dir, assets, copied, broken)
+    html = process_html(html, doc_dir, assets, copied, broken, "assets/")
     (out / entry.name).write_text(html, encoding="utf-8")
 
     for f in (".docmeta.yaml", "summary.md"):  # 元数据/摘要一并带出
