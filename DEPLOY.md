@@ -42,6 +42,8 @@ git add . && git commit -m "init docs" && git push
 
 多人协作：给同事仓库 write 权限（git shared group），他们 clone+push 即可发布。版本/审计/回滚由 git 提供。
 
+内容目录不支持符号链接，请放入实际文件。hook 会在检出前拒绝包含符号链接的提交，保留当前站点；`build.py` 也会拒绝内容目录中的符号链接，防止静态服务器读取目录外的文件。hook 部署失败不会撤销已经接收的 Git 提交。
+
 ## 静态服务器配置（Caddy）
 见 `Caddyfile.example`。改三处：站点目录、端口、认证用户/哈希。
 ```bash
