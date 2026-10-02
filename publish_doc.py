@@ -122,7 +122,7 @@ def main():
 
     copied, broken = set(), set()
     html = entry.read_text(encoding="utf-8", errors="replace")
-    html = process_html(html, doc_dir, assets, copied, broken, doc_dir, "assets/")
+    html = process_html(html, entry.parent, assets, copied, broken, doc_dir, "assets/")
     (out / entry.name).write_text(html, encoding="utf-8")
 
     for f in (".docmeta.yaml", "summary.md"):  # 元数据/摘要一并带出
@@ -132,6 +132,9 @@ def main():
             if p is None:
                 sys.exit(f"[publish_doc] 元数据超出文档目录: {doc_dir / f}")
             shutil.copy2(p, out / f)
+            if f == ".docmeta.yaml" and entry.parent != doc_dir:
+                meta = re.sub(r"^entry:\s*.+$", lambda _: f"entry: {entry.name}", p.read_text(encoding="utf-8"), flags=re.M)
+                (out / f).write_text(meta, encoding="utf-8")
 
     print(f"[publish_doc] {doc_slug}: 入口={entry.name} 资源={len(copied)} 断链={len(broken)} -> {out}")
     for b in sorted(broken):

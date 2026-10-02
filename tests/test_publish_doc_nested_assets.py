@@ -16,7 +16,7 @@ class PublishDocNestedAssetsTests(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp_dir.cleanup)
-        self.root = Path(self.temp_dir.name)
+        self.root = Path(self.temp_dir.name).resolve()
         self.doc = self.root / "doc"
         (self.doc / "sub" / "deeper").mkdir(parents=True)
         self.out = self.root / "out"
@@ -65,6 +65,25 @@ class PublishDocNestedAssetsTests(unittest.TestCase):
                 self.assertIn('href="https://example.com/page"', child.read_text())
                 self.assertIn('href="#top"', child.read_text())
                 self.assertEqual((output / "assets" / image_name).read_bytes(), b"image fixture")
+
+    def test_configured_nested_entry_publishes_and_builds(self):
+        for entry_name in ("start.html", r"start\guide.html"):
+            with self.subTest(entry_name=entry_name):
+                (self.doc / ".docmeta.yaml").write_text(f"entry: sub/{entry_name}\ntitle: Nested entry\n")
+                (self.doc / "sub" / entry_name).write_text('<img src="pic.png?size=1#image">')
+                (self.doc / "sub" / "pic.png").write_bytes(b"nested entry image")
+                result = self.publish()
+
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                output = self.out / "doc"
+                image_name = publish_doc.flatten(self.doc / "sub" / "pic.png")
+                self.assertIn(f'src="assets/{image_name}?size=1#image"', (output / entry_name).read_text())
+                self.assertEqual((output / ".docmeta.yaml").read_text(), f"entry: {entry_name}\ntitle: Nested entry\n")
+                self.assertEqual((output / "assets" / image_name).read_bytes(), b"nested entry image")
+                docs = build.load_docs(self.out, {})
+                self.assertEqual(len(docs), 1)
+                self.assertEqual(docs[0]["entry"], entry_name)
+                self.assertEqual(docs[0]["broken_count"], 0)
 
     def test_missing_nested_resource_keeps_failure_contract(self):
         (self.doc / "index.html").write_text('<a href="sub/child.html">child</a>')
