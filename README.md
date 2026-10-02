@@ -35,12 +35,14 @@ python3 -m http.server -d site 8090
 2. 放进 `site/docs/`，可选加 `.docmeta.yaml`
 3. `python3 build.py`
 
-**跨目录引用的文档**（HTML 里有 `../xxx`）先打包成自包含：
+用 `publish_doc.py` 打包文档目录内的资源，生成可独立同步的自包含文档：
 ```bash
 python3 publish_doc.py path/to/your-doc     # 产物在 dist/your-doc/
 cp -R dist/your-doc site/docs/
 python3 build.py
 ```
+
+入口（包括 `.docmeta.yaml` 的 `entry:`）、资源和元数据必须位于源文档目录内。绝对路径、越界的 `../` 和指向目录外的符号链接会被拒绝，命令以状态码 1 退出。嵌套 HTML 可引用源文档目录内的其他资源；目录外的资源应先复制进文档目录并更新引用。
 
 ### 文档元数据 `.docmeta.yaml`（可选）
 
@@ -90,7 +92,7 @@ HTML 里 `<video src="assets/x.mp4" controls></video>` 即可，浏览器直接�
 
 ## 复制后资源缺失，先查哪里？
 
-- 图片路径包含 `../`：文档依赖了兄弟目录，复制单个目录不会把依赖带走。先运行上面的 `publish_doc.py`，检查 `dist/文档名/` 内资源和入口，再复制打包结果。
+- 图片路径包含 `../`：先确认解析后的资源仍在源文档目录内。文档依赖兄弟目录时，先把资源复制进文档目录并更新引用，再运行 `publish_doc.py`；检查 `dist/文档名/` 内资源和入口，再复制打包结果。
 - 入口文件不叫 `index.html` 或 `report.html`：打包器可从 `.docmeta.yaml` 的 `entry: 文件名.html` 指定入口；该文件必须存在。未找到入口会报错，不能靠空索引判断发布成功。
 - 本地视频可播放，远端没有视频：检查 HTML 引用的目标路径，以及视频是否只被 `.gitignore` 排除、尚未执行 `sync_videos.sh`。视频传输与 HTML 的 git 部署是两条独立步骤。
 - 模板或分类改了，首页没变化：运行构建并确认预览的是新生成的 `site/`，再核对部署目标目录，不能只刷新浏览器判断构建已生效。
