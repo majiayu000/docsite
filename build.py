@@ -37,11 +37,18 @@ def slugify(s: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", str(s).lower()).strip("-")
 
 
+def document_path(doc_dir: Path, name: str) -> Path:
+    path = doc_dir / name
+    if not path.resolve().is_relative_to(doc_dir.resolve()):
+        raise ValueError(f"[build] path outside document: {path}")
+    return path
+
+
 def parse_meta(doc_dir: Path) -> dict:
-    jp = doc_dir / ".docmeta.json"
+    jp = document_path(doc_dir, ".docmeta.json")
     if jp.exists():
         return json.loads(jp.read_text(encoding="utf-8"))
-    yp = doc_dir / ".docmeta.yaml"
+    yp = document_path(doc_dir, ".docmeta.yaml")
     if yp.exists():
         try:
             import yaml
@@ -104,7 +111,7 @@ def infer_date(name: str, entry: Path) -> str:
 
 
 def read_summary_title(doc_dir: Path) -> str:
-    p = doc_dir / "summary.md"
+    p = document_path(doc_dir, "summary.md")
     if p.exists():
         for line in p.read_text(encoding="utf-8", errors="replace").splitlines():
             line = line.strip().lstrip("#").strip()
@@ -144,6 +151,18 @@ def check_broken(doc_dir: Path, entry_name: str) -> list:
 
 def load_docs(docs_dir: Path, category_map: dict) -> list:
     docs = []
+    # Keep ancestors unresolved so links cannot hide above the docs root.
+    for path in docs_dir.parents:
+        if path.is_symlink():
+            raise ValueError(f"[build] content symlink is not allowed: {path}")
+    # A static server can follow links even when the index never references them.
+    paths = [docs_dir]
+    while paths:
+        path = paths.pop()
+        if path.is_symlink():
+            raise ValueError(f"[build] content symlink is not allowed: {path}")
+        if path.is_dir():
+            paths.extend(path.iterdir())
     if not docs_dir.exists():
         print(f"[build] 警告: {docs_dir} 不存在，尚无文档", file=sys.stderr)
         return docs
@@ -224,7 +243,7 @@ def main():
 
     cfg = load_config()
     site_name = cfg.get("site_name", "文档站")
-    docs_dir = (ROOT / cfg.get("docs_dir", "site/docs")).resolve()
+    docs_dir = ROOT / cfg.get("docs_dir", "site/docs")
     out_dir = (ROOT / "site").resolve()
     category_map = cfg.get("category_map", {}) or {}
 
