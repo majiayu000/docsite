@@ -74,12 +74,15 @@ class BuildTests(unittest.TestCase):
             self.assertEqual(build.load_docs(self.docs_dir, {}), [])
         self.assertIn("[build] 跳过（无入口 missing.html）: missing", stderr.getvalue())
 
-    def test_metadata_errors_still_propagate(self):
+    def test_malformed_metadata_warns_and_is_skipped(self):
         doc_dir = self.docs_dir / "invalid"
         doc_dir.mkdir()
         (doc_dir / ".docmeta.json").write_text("{")
-        with self.assertRaises(json.JSONDecodeError):
-            build.load_docs(self.docs_dir, {})
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            self.assertEqual(build.load_docs(self.docs_dir, {}), [])
+        self.assertIn(str(doc_dir), stderr.getvalue())
+        self.assertIn("JSONDecodeError", stderr.getvalue())
 
     def test_cli_builds_samples_with_undiscoverable_entries(self):
         shutil.copy2(ROOT / "build.py", self.root / "build.py")

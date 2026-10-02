@@ -113,6 +113,37 @@ class DocumentMetadataTests(unittest.TestCase):
         with self.assertRaises(json.JSONDecodeError):
             build.parse_meta(invalid)
 
+    def test_path_boundary_errors_after_scan_still_propagate(self):
+        invalid = self.make_doc("a-changed", ".docmeta.json", "{}")
+        self.make_doc("z-valid")
+        outside = self.root / "private.json"
+        outside.write_text('{"title": "SYNTHETIC_PRIVATE"}', encoding="utf-8")
+        parse_meta = build.parse_meta
+
+        def changed_after_scan(path):
+            if path == invalid:
+                metadata = path / ".docmeta.json"
+                metadata.unlink()
+                metadata.symlink_to(outside)
+            return parse_meta(path)
+
+        with patch.object(build, "parse_meta", side_effect=changed_after_scan):
+            with self.assertRaisesRegex(ValueError, "path outside document"):
+                build.load_docs(self.docs_dir, {})
+
+    def test_invalid_utf8_is_skipped_and_reported(self):
+        for filename in (".docmeta.json", ".docmeta.yaml"):
+            with self.subTest(filename=filename):
+                invalid = self.make_doc("a-invalid-encoding")
+                (invalid / filename).write_bytes(b"\xff")
+                self.make_doc("z-valid")
+                stderr = io.StringIO()
+                with contextlib.redirect_stderr(stderr):
+                    docs = build.load_docs(self.docs_dir, {})
+                self.assertEqual([doc["slug"] for doc in docs], ["z-valid"])
+                self.assertIn(str(invalid), stderr.getvalue())
+                self.assertIn("UnicodeDecodeError", stderr.getvalue())
+
     def test_metadata_io_errors_still_propagate(self):
         invalid = self.make_doc("a-unreadable", ".docmeta.json", "{}")
         self.make_doc("z-valid")

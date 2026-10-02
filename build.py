@@ -169,7 +169,7 @@ def load_docs(docs_dir: Path, category_map: dict) -> list:
     if not docs_dir.exists():
         print(f"[build] 警告: {docs_dir} 不存在，尚无文档", file=sys.stderr)
         return docs
-    meta_errors = (ValueError, TypeError)
+    meta_errors = (json.JSONDecodeError, UnicodeDecodeError, TypeError)
     try:
         import yaml
     except ImportError:
