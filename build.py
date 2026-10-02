@@ -11,6 +11,7 @@ import re
 import shutil
 import sys
 from collections import OrderedDict
+from datetime import date
 from html.parser import HTMLParser
 from pathlib import Path
 
@@ -97,9 +98,10 @@ def make_slug_map(labels) -> dict:
 def _date_str(v) -> str:
     if v is None:
         return ""
-    if hasattr(v, "isoformat"):
-        return v.isoformat()[:10]
-    return str(v)
+    value = v.isoformat()[:10] if hasattr(v, "isoformat") else str(v)
+    if not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", value):
+        raise ValueError(f"Invalid document date {value!r}: expected YYYY-MM-DD")
+    return date.fromisoformat(value).isoformat()
 
 
 def infer_date(name: str, entry: Path) -> str:
