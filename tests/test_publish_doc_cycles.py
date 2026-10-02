@@ -54,7 +54,8 @@ class PublishDocCycleTests(unittest.TestCase):
                             pages.append(output / name)
                         for page in pages:
                             target_flat = publish_doc.flatten(self.doc / target)
-                            self.assertEqual(page.read_text(), f'<a href="assets/{target_flat}?view=1#top">next</a>')
+                            prefix = "" if page.parent == output / "assets" else "assets/"
+                            self.assertEqual(page.read_text(), f'<a href="{prefix}{target_flat}?view=1#top">next</a>')
 
     def test_missing_link_in_cycle_keeps_failure_contract(self):
         (self.doc / "index.html").write_text('<a href="a.html">next</a>')
