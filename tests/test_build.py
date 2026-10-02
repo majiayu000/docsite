@@ -35,7 +35,7 @@ class DocumentDateTests(unittest.TestCase):
 
     def test_unsafe_metadata_fails_before_output_writes(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
+            root = Path(tmp).resolve()
             doc = root / "site/docs/demo"
             doc.mkdir(parents=True)
             (doc / "index.html").write_text("<p>demo</p>", encoding="utf-8")
@@ -50,7 +50,7 @@ class DocumentDateTests(unittest.TestCase):
                     meta.write_text(content, encoding="utf-8")
                     try:
                         with patch.object(build, "ROOT", root):
-                            with self.assertRaises(ValueError):
+                            with self.assertRaisesRegex(ValueError, "Invalid document date"):
                                 build.main()
                         self.assertEqual(outside.read_text(encoding="utf-8"), "unchanged")
                         self.assertFalse((root / "site/_data").exists())
@@ -60,7 +60,7 @@ class DocumentDateTests(unittest.TestCase):
 
     def test_cli_returns_failure_for_unsafe_date(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
+            root = Path(tmp).resolve()
             shutil.copy2(build.ROOT / "build.py", root / "build.py")
             shutil.copytree(build.TEMPLATES, root / "templates")
             doc = root / "site/docs/demo"
@@ -73,12 +73,12 @@ class DocumentDateTests(unittest.TestCase):
                 capture_output=True, text=True,
             )
             self.assertNotEqual(result.returncode, 0)
-            self.assertIn("ValueError", result.stderr)
+            self.assertIn("Invalid document date", result.stderr)
             self.assertFalse((root / "z.html").exists())
 
     def test_sample_build_creates_calendar_archive(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
+            root = Path(tmp).resolve()
             shutil.copytree(build.ROOT / "sample-docs", root / "site/docs")
             with patch.object(build, "ROOT", root):
                 build.main()
@@ -90,10 +90,11 @@ class DocumentDateTests(unittest.TestCase):
 
     def test_missing_date_is_inferred(self):
         with tempfile.TemporaryDirectory() as tmp:
-            doc = Path(tmp) / "report_20260622"
+            root = Path(tmp).resolve()
+            doc = root / "report_20260622"
             doc.mkdir()
             (doc / "index.html").write_text("<p>demo</p>", encoding="utf-8")
-            self.assertEqual(build.load_docs(Path(tmp), {})[0]["date"], "2026-06-22")
+            self.assertEqual(build.load_docs(root, {})[0]["date"], "2026-06-22")
 
 
 if __name__ == "__main__":
